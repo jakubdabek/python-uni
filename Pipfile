@@ -8,6 +8,7 @@ verify_ssl = true
 [packages]
 jupyter = "*"
 numpy = "*"
+jsonschema = "*"
 
 [requires]
 python_version = "3.8"
