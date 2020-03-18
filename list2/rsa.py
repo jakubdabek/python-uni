@@ -28,7 +28,7 @@ def modinv(a: int, m: int) -> int:
 
 
 def fermat(n: int, k: int) -> bool:
-    """Performs the Fermat primality test and returns whether the number is definitely composite"""
+    """Perform the Fermat primality test and return whether the number is definitely composite"""
     for _ in range(k):
         a = random.randint(2, n - 2)
         if pow(a, n - 1, n) != 1:
@@ -37,7 +37,7 @@ def fermat(n: int, k: int) -> bool:
 
 
 def miller_rabin(n: int, k: int) -> bool:
-    """Performs the Miller-Rabin primality test and returns whether the number is definitely composite"""
+    """Perform the Miller-Rabin primality test and return whether the number is definitely composite"""
     assert n > 3 and n % 2 == 1
     assert k > 0
 
@@ -149,8 +149,9 @@ class Keys:
         possible_ps = primes(2 ** (bits // 2), 2 ** (bits // 2 + 1) - 1)
         p = next(p for p in possible_ps if is_very_probably_prime((p - 1) // 2))
         print(f"found p: {p}")
-        print(f"bounds for q: ({(2 ** (bits - 1)) // p}, {(2 ** bits - 1) // p})")
-        possible_qs = primes((2 ** (bits - 1)) // p, (2 ** bits - 1) // p)
+        q_bounds = (2 ** (bits - 1)) // p, (2 ** bits - 1) // p
+        print(f"bounds for q: {q_bounds}")
+        possible_qs = primes(*q_bounds)
         # q = next(filter(functools.partial(operator.ne, p), possible_qs))
         q = next(q for q in possible_qs if q != p)
 
