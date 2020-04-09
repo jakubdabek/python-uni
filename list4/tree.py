@@ -2,7 +2,8 @@ import itertools
 from abc import ABC, abstractmethod
 from collections import deque
 from collections.abc import Sequence, MutableSequence
-from typing import Iterable
+from random import randint
+from typing import Iterable, Union
 
 
 class Tree(ABC, Sequence):
@@ -44,21 +45,34 @@ class Tree(ABC, Sequence):
         for child in self.children():
             child.visit_dfs(visit)
 
-    def visit_bfs(self, visit):
+    BFS_LAST_IN_ROW = object()
+
+    def visit_bfs(self, visit, *, signal_last_in_row=False):
         """Calls visit on every node in tree by doing a level-order traversal."""
         if self.is_empty(self):
             return
 
         q = deque()
         q.append(self)
+        if signal_last_in_row:
+            q.append(Tree.BFS_LAST_IN_ROW)
+
         while q:
-            current: Tree = q.popleft()
-            visit(current.value)
-            q.extend(child for child in current.children() if not self.is_empty(child))
+            current: Union[Tree, Tree.BFS_LAST_IN_ROW] = q.popleft()
+            if current is Tree.BFS_LAST_IN_ROW:
+                visit(current)
+                if q:
+                    q.append(Tree.BFS_LAST_IN_ROW)
+            else:
+                visit(current.value)
+                q.extend(child for child in current.children() if not self.is_empty(child))
 
     @classmethod
-    def random(cls, value_gen, depth):
-        pass
+    def random(cls, value_gen, child_num_gen, depth) -> 'Tree':
+        if depth == 0:
+            return cls.empty()
+        children = (cls.random(value_gen, child_num_gen, depth - 1) for _ in range(child_num_gen()))
+        return cls.with_value(value_gen(), *children)
 
 
 class ListTree(Tree, MutableSequence):
@@ -173,6 +187,17 @@ def main():
 
     assert dfs == ['1', '2', '4', '8', '9', '5', '3', '6', '7']
     assert bfs == list(map(str, range(1, 10)))
+
+    def print_rows(current):
+        if current is Tree.BFS_LAST_IN_ROW:
+            print()
+        else:
+            print(current, end=" ")
+
+    tree.visit_bfs(print_rows, signal_last_in_row=True)
+
+    random_tree = ListTree.random(lambda: randint(1, 100), lambda: randint(2, 4), 5)
+    random_tree.visit_bfs(print_rows, signal_last_in_row=True)
 
 
 if __name__ == '__main__':
