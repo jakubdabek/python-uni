@@ -158,7 +158,14 @@ class ListTree(Tree, MutableSequence):
         return cls.with_value(list_[0], *map(cls.from_list, itertools.islice(list_, 1, None)))
 
 
-Node = ListTree
+class Node(ListTree):
+    def __repr__(self):
+        if self.is_empty(self):
+            return "Node(EMPTY)"
+        return f"Node(value={self.value}, children=[{', '.join(repr(c) for c in self.children())}])"
+
+    def __str__(self):
+        return self.__repr__()
 
 
 def main():
@@ -198,6 +205,10 @@ def main():
 
     random_tree = ListTree.random(lambda: randint(1, 100), lambda: randint(2, 4), 5)
     random_tree.visit_bfs(print_rows, signal_last_in_row=True)
+
+    random_node_tree = Node.random(lambda: randint(1, 100), lambda: randint(2, 4), 5)
+    random_node_tree.visit_bfs(print_rows, signal_last_in_row=True)
+    print(random_node_tree)
 
 
 if __name__ == '__main__':
