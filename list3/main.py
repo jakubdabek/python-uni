@@ -2,8 +2,6 @@ import random
 from collections import abc
 from typing import List, Iterator, Any, Iterable
 
-import six
-
 
 def transpose(matrix: List[str]) -> List[str]:
     """Transposes a list in a format ['x11 x12 ...', 'x21 x22 ...', ...]"""
@@ -77,7 +75,7 @@ def quicksort(a: List[int]) -> List[int]:
 
 def quicksort_main():
     for _ in range(100):
-        a = random.choices(range(2**20), k=random.randint(0, 100))
+        a = random.choices(range(2 ** 20), k=random.randint(0, 100))
         assert quicksort(a) == sorted(a)
 
 
