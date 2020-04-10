@@ -1,8 +1,8 @@
 import itertools
+import random
 from abc import ABC, abstractmethod
 from collections import deque
 from collections.abc import Sequence, MutableSequence
-from random import randint
 from typing import Iterable, Union
 
 
@@ -36,18 +36,18 @@ class Tree(ABC, Sequence):
     def with_value(cls, value, *children):
         raise NotImplementedError
 
-    def visit_dfs(self, visit):
+    def visit_dfs(self):
         """Calls visit on every node in tree by doing a pre-order traversal."""
         if self.is_empty(self):
             return
 
-        visit(self.value)
+        yield self.value
         for child in self.children():
-            child.visit_dfs(visit)
+            yield from child.visit_dfs()
 
     BFS_LAST_IN_ROW = object()
 
-    def visit_bfs(self, visit, *, signal_last_in_row=False):
+    def visit_bfs(self, *, signal_last_in_row=False):
         """Calls visit on every node in tree by doing a level-order traversal."""
         if self.is_empty(self):
             return
@@ -60,18 +60,28 @@ class Tree(ABC, Sequence):
         while q:
             current: Union[Tree, Tree.BFS_LAST_IN_ROW] = q.popleft()
             if current is Tree.BFS_LAST_IN_ROW:
-                visit(current)
+                yield current
                 if q:
                     q.append(Tree.BFS_LAST_IN_ROW)
             else:
-                visit(current.value)
+                yield current.value
                 q.extend(child for child in current.children() if not self.is_empty(child))
 
     @classmethod
     def random(cls, value_gen, child_num_gen, depth) -> 'Tree':
         if depth == 0:
             return cls.empty()
-        children = (cls.random(value_gen, child_num_gen, depth - 1) for _ in range(child_num_gen()))
+
+        child_num = child_num_gen()
+        deepest_index = random.randrange(0, child_num)
+
+        def next_depth(i):
+            if i == deepest_index:
+                return depth - 1
+            else:
+                return random.randint(0, depth - 1)
+
+        children = (cls.random(value_gen, child_num_gen, next_depth(i)) for i in range(child_num))
         return cls.with_value(value_gen(), *children)
 
 
@@ -185,9 +195,8 @@ def main():
          ]
     )
 
-    dfs, bfs = [], []
-    tree.visit_dfs(dfs.append)
-    tree.visit_bfs(bfs.append)
+    dfs = list(tree.visit_dfs())
+    bfs = list(tree.visit_bfs())
 
     print(f"dfs: {dfs}")
     print(f"bfs: {bfs}")
@@ -195,19 +204,25 @@ def main():
     assert dfs == ['1', '2', '4', '8', '9', '5', '3', '6', '7']
     assert bfs == list(map(str, range(1, 10)))
 
-    def print_rows(current):
+    def print_child(current):
         if current is Tree.BFS_LAST_IN_ROW:
             print()
         else:
             print(current, end=" ")
 
-    tree.visit_bfs(print_rows, signal_last_in_row=True)
+    def print_bfs(t):
+        for c in t.visit_bfs(signal_last_in_row=True):
+            print_child(c)
 
-    random_tree = ListTree.random(lambda: randint(1, 100), lambda: randint(2, 4), 5)
-    random_tree.visit_bfs(print_rows, signal_last_in_row=True)
+    print_bfs(tree)
+    print()
 
-    random_node_tree = Node.random(lambda: randint(1, 100), lambda: randint(2, 4), 5)
-    random_node_tree.visit_bfs(print_rows, signal_last_in_row=True)
+    random_tree = ListTree.random(lambda: random.randint(1, 100), lambda: random.randint(2, 4), 5)
+    print_bfs(random_tree)
+    print()
+
+    random_node_tree = Node.random(lambda: random.randint(1, 100), lambda: random.randint(2, 4), 5)
+    print_bfs(random_node_tree)
     print(random_node_tree)
 
 
