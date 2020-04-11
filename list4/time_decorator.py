@@ -1,9 +1,10 @@
 import time
 from functools import wraps
-from contextlib import AbstractContextManager
 
 
-class Timer(AbstractContextManager):
+class Timer:
+    __slots__ = ("_callback", "_start_time", "elapsed_ns")
+
     def __init__(self, *, callback=None):
         self._callback = callback
 
@@ -12,14 +13,14 @@ class Timer(AbstractContextManager):
         return self
 
     def __exit__(self, *exc):
-        self.elapsed = time.perf_counter_ns() - self._start_time
+        self.elapsed_ns = time.perf_counter_ns() - self._start_time
         if self._callback:
-            self._callback(self.elapsed)
+            self._callback(self.elapsed_ns)
         return False
 
 
-def print_elapsed(elapsed):
-    print(f"Elapsed: {elapsed / 1e6}ms")
+def print_elapsed(elapsed_ns):
+    print(f"Elapsed: {elapsed_ns / 1e6}ms")
 
 
 def timed(wrapped):
