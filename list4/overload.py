@@ -3,7 +3,7 @@ import math
 import operator
 from contextlib import contextmanager
 from typing import Callable, List, Tuple, Type
-from collections import defaultdict
+from collections import defaultdict, abc
 
 
 class NoApplicableOverloadError(TypeError):
@@ -64,6 +64,7 @@ class Overload:
     def __init__(self) -> None:
         self.functions: List[Tuple[inspect.Signature, Callable]] = []
 
+    # TODO: support external signature
     def register(self, func: Callable) -> None:
         self.functions.append((inspect.signature(func), func))
 
@@ -85,6 +86,8 @@ class Overload:
                 else:
                     raise AmbiguousOverloadError
 
+            # TODO: find the most specific even if there are multiple ambiguous choices
+            # TODO: support positional arguments with different names
             params = ((c_sig.parameters[name], n_sig.parameters[name]) for name in c_bound.arguments.keys())
             for c_cls, n_cls in ((_sig_param_type(c_param), _sig_param_type(n_param)) for c_param, n_param in params):
                 if c_cls is n_cls:
@@ -125,6 +128,10 @@ class Overload:
         ov = cls._instances[func.__name__]
         ov.register(func)
         return ov
+
+    @classmethod
+    def for_name(cls, name):
+        return cls._instances[name]
 
 
 def overload(wrapped):
@@ -216,6 +223,31 @@ def order(y: str = 'def(y)', *, x='def(x)'):
     return y, x
 
 
+@overload
+def flatten(obj: abc.Iterable) -> abc.Iterable:
+    for elem in obj:
+        yield from flatten(elem)
+
+
+@overload
+def flatten(obj: str) -> abc.Iterable:
+    if len(obj) >= 1:
+        yield from obj
+    else:
+        yield obj
+
+
+@overload
+def flatten(obj) -> abc.Iterable:
+    yield obj
+
+
+def main_flatten():
+    assert list(flatten([[1, 2, ["a", 4, "b", 5, 5, b'abc', 5, "123"]], [4, 5, 6], 7, '', [[9, [123, [[123]]]], 10]])) \
+           == \
+           [1, 2, 'a', 4, 'b', 5, 5, ord('a'), ord('b'), ord('c'), 5, '1', '2', '3', 4, 5, 6, 7, '', 9, 123, 123, 10]
+
+
 def foo(a, b: int, c=1, *args, x, y=None):
     pass
 
@@ -285,6 +317,8 @@ def main():
 
     with assert_raises(NoApplicableOverloadError):
         order(1)
+
+    main_flatten()
 
 
 if __name__ == '__main__':
