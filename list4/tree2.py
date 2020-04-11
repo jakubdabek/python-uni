@@ -30,13 +30,13 @@ TreeABC.register(type(None))
 
 
 @overload
-def value(tree: Node) -> Any:
-    return tree.value
+def value(tree: List) -> Any:
+    return tree[0]
 
 
 @overload
-def value(tree: List) -> Any:
-    return tree[0]
+def value(tree: Node) -> Any:
+    return tree.value
 
 
 @overload
@@ -45,13 +45,13 @@ def value(tree: type(None)) -> NoReturn:
 
 
 @overload
-def children(tree: Node) -> Iterable[Node]:
-    return tree.children
+def children(tree: List) -> Iterable[ListTree]:
+    return itertools.islice(tree, 1, None)
 
 
 @overload
-def children(tree: List) -> Iterable[ListTree]:
-    return itertools.islice(tree, 1, None)
+def children(tree: Node) -> Iterable[Node]:
+    return tree.children
 
 
 @overload
@@ -60,18 +60,18 @@ def children(tree: type(None)) -> NoReturn:
 
 
 @overload
-def is_tree_empty(tree: List) -> bool:
+def is_empty(tree: List) -> bool:
     return False
 
 
 @overload
-def is_tree_empty(tree: type(None)) -> bool:
+def is_empty(tree: Node) -> bool:
+    return False
+
+
+@overload
+def is_empty(tree: type(None)) -> bool:
     return True
-
-
-@overload
-def is_tree_empty(tree: Node) -> bool:
-    return False
 
 
 def make_empty_list_tree() -> ListTree:
@@ -82,7 +82,7 @@ def make_list_tree(value: Any, children: Iterable[ListTree]) -> ListTree:
     return [value, *children]
 
 
-def _next_depth(i, deepest_index, current_height):
+def _next_height(i, deepest_index, current_height):
     if i == deepest_index:
         return current_height - 1
     else:
@@ -103,14 +103,14 @@ def random_tree(
         child_num = child_num_gen()
         deepest_index = random.randrange(0, child_num)
 
-        children = (impl(_next_depth(i, deepest_index, current_height)) for i in range(child_num))
+        children = (impl(_next_height(i, deepest_index, current_height)) for i in range(child_num))
         return make_full(value_gen(), children)
 
     return impl(height)
 
 
 def traverse_dfs(tree: TreeABC) -> Iterable[Any]:
-    if is_tree_empty(tree):
+    if is_empty(tree):
         return
 
     yield value(tree)
@@ -122,7 +122,7 @@ BFS_LAST_IN_ROW = object()
 
 
 def traverse_bfs(tree: TreeABC, *, signal_last_in_row=False) -> Iterable[Any]:
-    if is_tree_empty(tree):
+    if is_empty(tree):
         return
 
     q = deque()
@@ -138,24 +138,10 @@ def traverse_bfs(tree: TreeABC, *, signal_last_in_row=False) -> Iterable[Any]:
                 q.append(BFS_LAST_IN_ROW)
         else:
             yield value(current)
-            q.extend(child for child in children(current) if not is_tree_empty(child))
+            q.extend(child for child in children(current) if not is_empty(child))
 
 
 def main():
-    values = ["1",
-              ["2",
-               ["4",
-                ["8", None, None],
-                ["9", None, None]
-                ],
-               ["5", None, None],
-               ],
-              ["3",
-               ["6", None, None],
-               ["7", None, None],
-               ]
-              ]
-
     def print_child(current):
         if current is BFS_LAST_IN_ROW:
             print()
@@ -172,6 +158,20 @@ def main():
         print(list(traverse_bfs(t)))
         print(t)
         print()
+
+    values = ["1",
+              ["2",
+               ["4",
+                ["8", None, None],
+                ["9", None, None]
+                ],
+               ["5", None, None],
+               ],
+              ["3",
+               ["6", None, None],
+               ["7", None, None],
+               ]
+              ]
 
     print_all(values)
 
