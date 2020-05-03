@@ -34,5 +34,10 @@ def main():
     return movies, data, my_ratings, profile, recommendations
 
 
+def main_print():
+    movies, data, my_ratings, profile, recommendations = main()
+    print(recommendations.head(10))
+
+
 if __name__ == '__main__':
-    main()
+    main_print()
