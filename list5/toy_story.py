@@ -22,12 +22,13 @@ def load_movies_find_id(title: str) -> Tuple[pd.Series, int]:
     return movies["movieId"], movies.loc[movies["title"] == title, "movieId"][0]
 
 
-def relevant_data(ratings: pd.DataFrame, movie_ids: pd.Series, movie_id: int, max_movie_id: int) -> pd.DataFrame:
+def relevant_data(ratings: pd.DataFrame, movie_ids: pd.Series, movie_id: Optional[int], max_movie_id: int) -> pd.DataFrame:
     ratings = ratings.drop('timestamp', axis=1)
     ratings = ratings[ratings['movieId'] <= max_movie_id]
     ratings = pd.pivot_table(ratings, index='userId', columns='movieId', values='rating')
     ratings = ratings.reindex(columns=movie_ids[movie_ids <= max_movie_id], copy=False)
-    ratings = ratings[ratings[movie_id].notna()]
+    if movie_id is not None:
+        ratings = ratings[ratings[movie_id].notna()]
     ratings.fillna(0.0, inplace=True)
 
     return ratings
@@ -43,10 +44,10 @@ def main():
     ratings = load_data("ratings.csv")
 
     max_movie_ids = pd.Series(flatten([10**i, 10**i * 2, 10**i * 5] for i in range(1, 6)))
-    bound = len(max_movie_ids[max_movie_ids < movie_ids.max()])
-    max_movie_ids = max_movie_ids[:bound+1]
     # max_movie_ids = [200]
     # max_movie_ids = [10, 100, 200, 500, 1000, 2500, 5000, 7500, 10000]
+    bound = len(max_movie_ids[max_movie_ids < movie_ids.max()])
+    max_movie_ids = max_movie_ids[:bound+1]
     scores = []
     for max_movie_id in max_movie_ids:
         data = relevant_data(ratings, movie_ids, toy_story_id, max_movie_id)
