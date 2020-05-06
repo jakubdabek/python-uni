@@ -11,6 +11,8 @@ numpy = "*"
 matplotlib = "*"
 pandas = "*"
 scikit-learn = "*"
+tables = "*"
+fastparquet = "*"
 jsonschema = "*"
 mypy = "*"
 
