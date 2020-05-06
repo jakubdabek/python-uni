@@ -31,7 +31,21 @@ def load_large_data(
     return ddf.read_csv(dataset_dir(dataset, parent_path) / file_name, usecols=usecols, blocksize=128 * 1024 * 1024)
 
 
-def main(dataset='ml-latest-small', ratings_limit=None):
+def iter_timer(period=100, debug_level=1):
+    if debug_level >= 1:
+        timer, iter_completed = Timer.make_iter_timer(
+            period,
+            callback=Timer.DEFAULT_CALLBACK,
+        )
+
+        iter_completed_manager = iter_completed.manager if debug_level >= 2 else contextlib.nullcontext
+    else:
+        timer, iter_completed_manager = contextlib.nullcontext(), contextlib.nullcontext
+
+    return timer, iter_completed_manager
+
+
+def main(dataset='ml-latest-small', ratings_limit=None, debug_level=1):
     movies: ddf.DataFrame = load_large_data("movies.csv", usecols=["movieId", "title"], dataset=dataset)
     movies = movies.set_index("movieId", sorted=True)
     movies: pd.DataFrame = movies.loc[:10_001].compute()
@@ -49,83 +63,44 @@ def main(dataset='ml-latest-small', ratings_limit=None):
         1097: 4.0,
     }
 
-    my_ratings2 = pd.DataFrame(dict(rating=my_ratings))
-    my_ratings3 = sorted(list(my_ratings.items()), key=lambda x: x[0])
-    my_ratings3 = sparse.csc_matrix(
+    my_ratings = sorted(list(my_ratings.items()), key=lambda x: x[0])
+    my_ratings = sparse.csc_matrix(
         (
-            [x for x, _ in my_ratings3],
-            (np.zeros(len(my_ratings3)), [y for _, y in my_ratings3])
+            [rating for _, rating in my_ratings],
+            (np.zeros(len(my_ratings)), [pos for pos, _ in my_ratings])
         ),
         (1, 10_001),
     )
-    my_ratings = pd.DataFrame(dict(rating=my_ratings), index=movies.index)
-    my_ratings = my_ratings.fillna(0.0)
 
-    profile_timer, profile_iter_completed = Timer.make_iter_timer(
-        100,
-        callback=Timer.DEFAULT_CALLBACK,
-    )
+    profile_timer, profile_iter_completed_manager = iter_timer(debug_level=debug_level)
 
     def group_similarity(gr: pd.DataFrame) -> float:
-        with contextlib.nullcontext():  # profile_iter_completed.manager():
+        with profile_iter_completed_manager():
             gr = gr.set_index('movieId')
-            gr = gr.reindex(movies.index, fill_value=0.0)
-            return cosine_similarity(gr.T, my_ratings.T)[0, 0]
-
-    def group_similarity2(gr: pd.DataFrame) -> float:
-        with contextlib.nullcontext():  # profile_iter_completed.manager():
-            gr = gr.set_index('movieId')
-            joined = gr.join(my_ratings2, rsuffix='_right', how='inner')
-            if joined.empty:
-                return 0.0
-            left = joined["rating"].T.to_numpy().reshape(1, -1)
-            right = joined["rating_right"].T.to_numpy().reshape(1, -1)
-            return cosine_similarity(left, right)[0, 0]
-
-    def group_similarity3(gr: pd.DataFrame) -> float:
-        with contextlib.nullcontext():  # profile_iter_completed.manager():
-            gr = gr.set_index('movieId')
-            left = sparse.csc_matrix((gr["rating"], (np.zeros_like(gr.index), gr.index)), (1, my_ratings3.shape[1]))
-            return cosine_similarity(left, my_ratings3)[0, 0]
+            left = sparse.csc_matrix((gr["rating"], (np.zeros_like(gr.index), gr.index)), (1, my_ratings.shape[1]))
+            return cosine_similarity(left, my_ratings)[0, 0]
 
     profile: ddf.DataFrame = ratings.groupby("userId").apply(group_similarity, meta=("cos", float))
-    profile2: ddf.DataFrame = ratings.groupby("userId").apply(group_similarity2, meta=("cos", float))
-    profile3: ddf.DataFrame = ratings.groupby("userId").apply(group_similarity3, meta=("cos", float))
 
     print("computing profile")
-    with Timer(callback=Timer.DEFAULT_CALLBACK):
+    with profile_timer:
         profile: pd.Series = profile.compute()
-
-    print("computing profile2")
-    with Timer(callback=Timer.DEFAULT_CALLBACK):
-        profile2: pd.Series = profile2.compute()
-
-    print("computing profile3")
-    with Timer(callback=Timer.DEFAULT_CALLBACK):
-        profile3: pd.Series = profile3.compute()
 
     parquet_path = dataset_dir(dataset) / 'ratings_by_movie.parquet'
 
     print("saving intermediate ratings to parquet")
-    with Timer(callback=Timer.DEFAULT_CALLBACK):
-        ratings_by_movie = ratings \
+    with Timer(callback=Timer.DEFAULT_CALLBACK if debug_level >= 1 else None):
+        ratings \
             .reset_index() \
-            .set_index('movieId', divisions=list(range(1, 10_001, 10))) \
+            .set_index('movieId', divisions=list(range(1, 10_001, 100))) \
             .to_parquet(parquet_path, engine="fastparquet")
-        # .to_hdf(dataset_dir(dataset) / 'ratings_by_movie.hdf', "/data-*")
 
-    from time import sleep
-    # sleep(2)
-    # ratings_by_movie = ddf.read_hdf(ratings_by_movie, "/data-*")
     ratings_by_movie: ddf.DataFrame = ddf.read_parquet(parquet_path)
 
-    recommendations_timer, recommendations_iter_completed = Timer.make_iter_timer(
-        100,
-        callback=Timer.DEFAULT_CALLBACK,
-    )
+    recommendations_timer, recommendations_iter_completed_manager = iter_timer(debug_level=debug_level)
 
     def profile_similarity(gr: pd.DataFrame) -> float:
-        with recommendations_iter_completed.manager():
+        with recommendations_iter_completed_manager():
             gr = gr.set_index("userId")
             joined = gr.join(profile, how='outer').fillna(0.0)
             if joined.empty:
@@ -140,7 +115,6 @@ def main(dataset='ml-latest-small', ratings_limit=None):
 
     print("computing recommendations")
     with recommendations_timer:
-        # recommendations15: pd.Series = recommendations.nlargest(15).compute()
         recommendations: pd.Series = recommendations.compute()
 
     recommendations: pd.DataFrame = movies.join(recommendations).fillna(0.0)
