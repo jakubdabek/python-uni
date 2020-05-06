@@ -266,7 +266,7 @@ def main_benchmark():
             ("naive", (dft, idft)),
     ]:
         def setup(size):
-            # with time_decorator.Timer(callback=time_decorator.print_elapsed):
+            # with time_decorator.Timer(callback=Timer.DEFAULT_CALLBACK):
             a = np.random.choice(10, size)
             b = np.random.choice(10, size)
 
@@ -282,7 +282,7 @@ def main_benchmark():
             local_lengths = lengths
 
         for length in local_lengths:
-            with time_decorator.Timer(callback=time_decorator.print_elapsed):
+            with time_decorator.Timer(callback=Timer.DEFAULT_CALLBACK):
                 timer = timeit.Timer(
                     "a * b",
                     f"a, b = setup({length})",
