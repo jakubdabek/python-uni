@@ -44,7 +44,7 @@ def iter_timer(period=100, debug_level=1):
 
     return timer, iter_completed_manager
 
-
+# A larger dataset - 'ml-latest' - can be found at https://files.grouplens.org/datasets/movielens/ml-latest.zip
 def main(dataset='ml-latest-small', ratings_limit=None, debug_level=1):
     movies: ddf.DataFrame = load_large_data("movies.csv", usecols=["movieId", "title"], dataset=dataset)
     movies = movies.set_index("movieId", sorted=True)
@@ -123,6 +123,11 @@ def main(dataset='ml-latest-small', ratings_limit=None, debug_level=1):
     return movies, ratings, my_ratings, profile, ratings_by_movie, recommendations
 
 
+def main_print():
+    movies, ratings, my_ratings, profile, ratings_by_movie, recommendations = main()
+    print(recommendations.head(10))
+
+
 def limit_memory(maxsize):
     try:
         import resource
@@ -135,4 +140,4 @@ def limit_memory(maxsize):
 limit_memory(1024 * 1024 * 1024)
 
 if __name__ == '__main__':
-    main()
+    main_print()
