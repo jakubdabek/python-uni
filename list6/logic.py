@@ -2,8 +2,9 @@ import functools
 from typing import List, Callable
 
 import numpy as np
-from list6.neural_network import NeuralNetwork, SIGMOID_ACTIVATION
 
+from list6.activation import Sigmoid, Relu
+from list6.neural_network import NeuralNetwork
 
 def generate_inputs(size: int) -> List[List[int]]:
     if size == 1:
@@ -20,8 +21,8 @@ def main():
     training_set = np.array([[0, 0, 1], [0, 1, 1], [1, 0, 1], [1, 1, 1]])
     expected = np.array([[1], [0], [0], [1]])
 
-    nn = NeuralNetwork.new_random(3, [4, 1], [SIGMOID_ACTIVATION] * 2)
-    nn.train(training_set, expected, 20000)
+    nn = NeuralNetwork.new_random(3, [4, 1], [Sigmoid(), Sigmoid()])
+    nn.train(training_set, expected, 10000)
 
     print(nn.predict(training_set)[-1])
     print(nn.predict(np.array([[0, 0, 0], [1, 1, 0], [0, 1, 0], [1, 0, 0]]))[-1])

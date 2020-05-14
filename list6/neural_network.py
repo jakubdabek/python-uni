@@ -1,24 +1,9 @@
-from typing import Callable, TypeVar, List, Tuple
+from typing import List
 from dataclasses import dataclass
 
 import numpy as np
 
-ActivationInput = TypeVar("ActivationInput", float, np.ndarray)
-ActivationFunction = Callable[[ActivationInput], ActivationInput]
-ActivationGradient = Callable[[ActivationInput], ActivationInput]
-Activation = Tuple[ActivationFunction, ActivationGradient]
-
-
-def sigmoid(x: ActivationInput) -> ActivationInput:
-    return 1.0 / (1.0 + np.exp(np.negative(x)))
-
-
-def sigmoid_gradient(x: ActivationInput) -> ActivationInput:
-    fx = sigmoid(x)
-    return fx * (1.0 - fx)
-
-
-SIGMOID_ACTIVATION: Activation = (sigmoid, sigmoid_gradient)
+from list6.activation import Activation
 
 
 @dataclass
@@ -39,7 +24,7 @@ class Layer:
         Returns:
             Samples x NeuronsCount array of outputs
         """
-        return self.activation[0](np.dot(values, self.input_weights))
+        return self.activation.value(np.dot(values, self.input_weights))
 
 
 class NeuralNetwork:
@@ -72,7 +57,6 @@ class NeuralNetwork:
         self,
         input_values: np.ndarray,
         expected_outputs: np.ndarray,
-        activation: Activation,
         learning_rate: float,
     ) -> None:
         if len(self.layers) != 2:
@@ -80,12 +64,14 @@ class NeuralNetwork:
                 "backpropagation implemented only for simple perceptrons (2 layers)"
             )
 
-        activation_func, activation_grad = activation
         outputs = self.feed_forward(input_values)
 
-        error1 = (expected_outputs - outputs[-1]) * activation_grad(outputs[-1])
+        activation1 = self.layers[-1].activation
+        error1 = (expected_outputs - outputs[-1]) * activation1.gradient_from_value(outputs[-1])
         delta1 = learning_rate * np.dot(error1.T, outputs[-2])
-        error2 = activation_grad(outputs[-2]) * np.dot(
+
+        activation2 = self.layers[-2].activation
+        error2 = activation2.gradient_from_value(outputs[-2]) * np.dot(
             error1, self.layers[-1].input_weights.T
         )
         delta2 = learning_rate * np.dot(error2.T, input_values)
@@ -97,7 +83,7 @@ class NeuralNetwork:
         self, input_set: np.ndarray, expected_outputs: np.ndarray, epochs: int
     ) -> None:
         for _ in range(epochs):
-            self.back_propagation(input_set, expected_outputs, SIGMOID_ACTIVATION, 0.5)
+            self.back_propagation(input_set, expected_outputs, 0.5)
 
     def predict(self, input_set: np.ndarray):
         return self.feed_forward(input_set)
