@@ -9,6 +9,7 @@ from list6.activation import Activation
 @dataclass
 class Layer:
     input_weights: np.ndarray
+    biases: np.ndarray
     activation: Activation
 
     @property
@@ -24,7 +25,7 @@ class Layer:
         Returns:
             Samples x NeuronsCount array of outputs
         """
-        return self.activation.value(np.dot(values, self.input_weights))
+        return self.activation.value(np.dot(self.input_weights, values) + self.biases)
 
 
 class NeuralNetwork:
@@ -36,22 +37,38 @@ class NeuralNetwork:
         cls, input_count: int, neuron_counts: List[int], activations: List[Activation]
     ):
         layers = []
+        rng = np.random.default_rng()
         for neuron_count, activation in zip(neuron_counts, activations):
             layers.append(
-                Layer(np.random.random_sample((input_count, neuron_count)), activation)
+                Layer(
+                    rng.standard_normal((neuron_count, input_count)),
+                    np.zeros((neuron_count, 1)),
+                    activation,
+                )
             )
             input_count = neuron_count
 
         return cls(layers)
 
     def feed_forward(self, input_values: np.ndarray) -> List[np.ndarray]:
-        layer_outputs = []
+        """Feeds the input through the network
+
+        Args:
+            input_values: column vectors with inputs (input_size x samples)
+
+        Returns:
+            list of activation values as column vectors for each input (layer_size x samples)
+        """
         output = input_values  # input is treated like output of "layer 0"
+        layer_outputs = [output]
         for layer in self.layers:
             output = layer.calculate(output)
             layer_outputs.append(output)
 
         return layer_outputs
+
+    def feed_forward_trans(self, input_values: np.ndarray) -> List[np.ndarray]:
+        return [output.T for output in self.feed_forward(input_values.T)]
 
     def back_propagation(
         self,
@@ -59,31 +76,53 @@ class NeuralNetwork:
         expected_outputs: np.ndarray,
         learning_rate: float,
     ) -> None:
-        if len(self.layers) != 2:
-            raise NotImplementedError(
-                "backpropagation implemented only for simple perceptrons (2 layers)"
-            )
-
         outputs = self.feed_forward(input_values)
 
-        activation1 = self.layers[-1].activation
-        error1 = (expected_outputs - outputs[-1]) * activation1.gradient_from_value(outputs[-1])
-        delta1 = learning_rate * np.dot(error1.T, outputs[-2])
+        output_layer = self.layers[-1]
+        output_delta = (
+            outputs[-1] - expected_outputs
+        ) * output_layer.activation.derivative_from_value(outputs[-1])
 
-        activation2 = self.layers[-2].activation
-        error2 = activation2.gradient_from_value(outputs[-2]) * np.dot(
-            error1, self.layers[-1].input_weights.T
+        changes = []
+
+        last_delta = output_delta
+        last_layer = output_layer
+        for layer, output in zip(self.layers[-2::-1], outputs[-2::-1]):
+            changes.append(
+                (
+                    last_delta.mean(axis=1, keepdims=True),
+                    np.einsum("ij,kj->jik", last_delta, output).mean(axis=0),
+                )
+            )
+            last_delta = np.dot(
+                last_layer.input_weights.T, last_delta
+            ) * layer.activation.derivative_from_value(output)
+            last_layer = layer
+
+        changes.append(
+            (
+                last_delta.mean(axis=1, keepdims=True),
+                np.einsum("ij,kj->jik", last_delta, outputs[0]).mean(axis=0),
+            )
         )
-        delta2 = learning_rate * np.dot(error2.T, input_values)
 
-        self.layers[-1].input_weights += delta1.T
-        self.layers[-2].input_weights += delta2.T
+        for layer, (bias_change, weight_change) in zip(self.layers, reversed(changes)):
+            layer.input_weights -= learning_rate * weight_change
+            layer.biases -= learning_rate * bias_change
 
     def train(
-        self, input_set: np.ndarray, expected_outputs: np.ndarray, epochs: int
+        self, input_set: np.ndarray, expected_outputs: np.ndarray, epochs: int, learning_rate: float = 0.5
     ) -> None:
         for _ in range(epochs):
-            self.back_propagation(input_set, expected_outputs, 0.5)
+            self.back_propagation(input_set, expected_outputs, learning_rate)
 
-    def predict(self, input_set: np.ndarray):
-        return self.feed_forward(input_set)
+    def train_trans(
+        self, input_set: np.ndarray, expected_outputs: np.ndarray, epochs: int, learning_rate: float = 0.5
+    ) -> None:
+        return self.train(input_set.T, expected_outputs.T, epochs, learning_rate)
+
+    def predict(self, input_set: np.ndarray) -> np.ndarray:
+        return self.feed_forward(input_set)[-1]
+
+    def predict_trans(self, input_set: np.ndarray) -> np.ndarray:
+        return self.feed_forward_trans(input_set)[-1]
