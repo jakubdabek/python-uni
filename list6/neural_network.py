@@ -20,10 +20,10 @@ class Layer:
         """Calculates layer outputs
 
         Arguments:
-            values: Samples x InputSize array
+            values: InputSize x Samples array
 
         Returns:
-            Samples x NeuronsCount array of outputs
+            NeuronsCount x Samples array of outputs
         """
         return self.activation.value(np.dot(self.input_weights, values) + self.biases)
 
@@ -111,13 +111,21 @@ class NeuralNetwork:
             layer.biases -= learning_rate * bias_change
 
     def train(
-        self, input_set: np.ndarray, expected_outputs: np.ndarray, epochs: int, learning_rate: float = 0.5
+        self,
+        input_set: np.ndarray,
+        expected_outputs: np.ndarray,
+        epochs: int,
+        learning_rate: float = 0.5,
     ) -> None:
         for _ in range(epochs):
             self.back_propagation(input_set, expected_outputs, learning_rate)
 
     def train_trans(
-        self, input_set: np.ndarray, expected_outputs: np.ndarray, epochs: int, learning_rate: float = 0.5
+        self,
+        input_set: np.ndarray,
+        expected_outputs: np.ndarray,
+        epochs: int,
+        learning_rate: float = 0.5,
     ) -> None:
         return self.train(input_set.T, expected_outputs.T, epochs, learning_rate)
 

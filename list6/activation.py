@@ -37,6 +37,9 @@ class Sigmoid(Activation):
     def derivative_from_value(x: ActivationT) -> ActivationT:
         return x * (1.0 - x)
 
+    def __repr__(self):
+        return "Sigmoid"
+
 
 class Relu(Activation):
     @staticmethod
@@ -50,6 +53,9 @@ class Relu(Activation):
     @staticmethod
     def derivative_from_value(x: ActivationT) -> ActivationT:
         return np.where(x > 0, 1, 0)
+
+    def __repr__(self):
+        return "ReLu"
 
 
 class Tanh(Activation):
@@ -65,3 +71,6 @@ class Tanh(Activation):
     @staticmethod
     def derivative_from_value(x: ActivationT) -> ActivationT:
         return 1.0 - np.square(x)
+
+    def __repr__(self):
+        return "Tanh"
