@@ -27,7 +27,7 @@ def main_main(size: int):
 
         for act in permutations_with_replacement([Sigmoid(), Relu()], 2):
             for _ in range(5):
-                nn = NeuralNetwork.new_random(size, [4, 1], act)
+                nn = NeuralNetwork.new_random(size, zip([4, 1], act))
                 nn.train(training_set, expected_subset, 5000)
                 print(nn.predict(all_inputs[perm]))
 
@@ -43,7 +43,7 @@ def train(
     num: int = 5,
 ) -> List[NeuralNetwork]:
     def make_one():
-        nn = NeuralNetwork.new_random(3, [4, 1], activations)
+        nn = NeuralNetwork.new_random(3, zip([4, 1], activations))
         nn.train_trans(training_set, expected, 10000, 3)
         return nn
 

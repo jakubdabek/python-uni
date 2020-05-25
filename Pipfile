@@ -15,6 +15,7 @@ tables = "*"
 fastparquet = "*"
 jsonschema = "*"
 mypy = "*"
+pygifsicle = "*"
 
 [requires]
 python_version = "3.8"

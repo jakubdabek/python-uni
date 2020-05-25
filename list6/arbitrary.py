@@ -1,11 +1,13 @@
+import logging
 from typing import Tuple, Callable, Optional
 
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation
 from sklearn import preprocessing
+from pygifsicle import optimize
 
-from list6.activation import Sigmoid, Tanh, Relu
+from list6.activation import *
 from list6.neural_network import NeuralNetwork
 
 
@@ -36,7 +38,7 @@ def train_progress(
 
     single_epoch, iters = epochs
 
-    nn = NeuralNetwork.new_random(1, [10, 1], [Tanh(), Tanh()])
+    nn = NeuralNetwork.new_random(1, zip([10, 1], [Tanh(), Tanh()]))
 
     fig: plt.Figure
     ax: plt.Axes
@@ -82,6 +84,10 @@ def train_progress(
             blit=True,
         )
         anim.save(gif_filename, dpi=100, writer="imagemagick")
+        try:
+            optimize(gif_filename)
+        except FileNotFoundError:
+            logging.warning("gifsicle not installed")
     else:
         for i in range(iters):
             update(i)

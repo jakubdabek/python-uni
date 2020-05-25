@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple, Iterable
 from dataclasses import dataclass
 
 import numpy as np
@@ -33,12 +33,10 @@ class NeuralNetwork:
         self.layers = layers
 
     @classmethod
-    def new_random(
-        cls, input_count: int, neuron_counts: List[int], activations: List[Activation]
-    ):
+    def new_random(cls, input_count: int, layer_info: Iterable[Tuple[int, Activation]]):
         layers = []
         rng = np.random.default_rng()
-        for neuron_count, activation in zip(neuron_counts, activations):
+        for neuron_count, activation in layer_info:
             layers.append(
                 Layer(
                     rng.standard_normal((neuron_count, input_count)),
