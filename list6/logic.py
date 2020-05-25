@@ -6,18 +6,7 @@ import numpy as np
 
 from list6.activation import Sigmoid, Relu, Activation
 from list6.neural_network import NeuralNetwork
-
-
-T = TypeVar("T")
-
-
-def permutations_with_replacement(lst: List[T], size: int) -> List[List[T]]:
-    if size < 1:
-        return []
-    if size == 1:
-        return [[x] for x in lst]
-    prev = permutations_with_replacement(lst, size - 1)
-    return [[x] + rest for x in lst for rest in prev]
+from list6.utils import permutations_with_replacement
 
 
 def calc_outputs(
