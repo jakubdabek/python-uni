@@ -38,7 +38,7 @@ class Sigmoid(Activation):
         return x * (1.0 - x)
 
     def __repr__(self):
-        return "Sigmoid"
+        return "sigmoid"
 
 
 class Relu(Activation):
@@ -55,7 +55,7 @@ class Relu(Activation):
         return np.where(x > 0, 1, 0)
 
     def __repr__(self):
-        return "ReLu"
+        return "ReLU"
 
 
 class Tanh(Activation):
@@ -73,4 +73,4 @@ class Tanh(Activation):
         return 1.0 - np.square(x)
 
     def __repr__(self):
-        return "Tanh"
+        return "tanh"
