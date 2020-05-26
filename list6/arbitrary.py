@@ -1,9 +1,9 @@
 import logging
 from dataclasses import dataclass
 from functools import cached_property
-from itertools import chain
+from itertools import chain, cycle
 from pathlib import Path
-from typing import Tuple, Callable, Optional, List, Union
+from typing import Tuple, Callable, Optional, List, Union, Iterable
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -209,34 +209,14 @@ def check_function(
     return errors
 
 
-def main_square(test_name: str, make_gif: bool):
-    return main_any(
-        np.square,
-        (
-            np.linspace(-50, 50, 26).reshape(-1, 1),
-            np.linspace(-50, 50, 101).reshape(-1, 1),
-        ),
-        test_name,
-        make_gif,
-    )
-
-
-def main_sin(test_name: str, make_gif: bool):
-    return main_any(
-        lambda x: np.sin((3 * np.pi / 2) * x),
-        (np.linspace(0, 2, 21).reshape(-1, 1), np.linspace(0, 2, 161).reshape(-1, 1)),
-        test_name,
-        make_gif,
-    )
-
-
-def main_any(
+def main_check_activations(
     f: Callable[[np.ndarray], np.ndarray],
     data: Tuple[np.ndarray, np.ndarray],
     test_name: str,
     make_gif: bool,
+    activations_choice: Optional[List[Activation]] = None,
 ):
-    test_id = 3
+    test_id = 1
     if make_gif:
         dir_name = f"plots/{test_id}"
         Path(dir_name).mkdir(parents=True, exist_ok=True)
@@ -260,7 +240,15 @@ def main_any(
 
     with open(f"{test_name}-learning-{test_id}.csv", 'w+', newline='') as info_file:
         writer = csv.writer(info_file)
-        for activations in chain(perms(2), perms(3)):
+        if activations_choice is None:
+            activations_choice = chain(perms(2), perms(3))
+            epochs = (2000, 200)
+        else:
+            activations_choice = [activations_choice]
+            epochs = (3000, 250)
+
+        activations_choice: Iterable[List[Activation]]
+        for activations in activations_choice:
             gif_params = get_gif_params(activations)
             neuron_counts = [10] * len(activations)
             neuron_counts[-1] = 1
@@ -268,13 +256,36 @@ def main_any(
                 errors = check_function(
                     f,
                     data,
-                    NeuralNetworkParams(list(zip(neuron_counts, activations)), (2000, 200)),
+                    NeuralNetworkParams(list(zip(neuron_counts, activations)), epochs),
                     gif_params,
                 )
             writer.writerow(["-".join(map(str, activations)), timer.elapsed_ns / 1e6, *errors])
 
 
-def main(make_gifs=False):
+def main_square(test_name: str, make_gif: bool, activations_choice: Optional[List[Activation]] = None):
+    return main_check_activations(
+        np.square,
+        (
+            np.linspace(-50, 50, 26).reshape(-1, 1),
+            np.linspace(-50, 50, 101).reshape(-1, 1),
+        ),
+        test_name,
+        make_gif,
+        activations_choice,
+    )
+
+
+def main_sin(test_name: str, make_gif: bool, activations_choice: Optional[List[Activation]] = None):
+    return main_check_activations(
+        lambda x: np.sin((3 * np.pi / 2) * x),
+        (np.linspace(0, 2, 21).reshape(-1, 1), np.linspace(0, 2, 161).reshape(-1, 1)),
+        test_name,
+        make_gif,
+        activations_choice,
+    )
+
+
+def main_all(make_gifs=False):
     with Timer(callback=Timer.DEFAULT_CALLBACK):
         square_filename = "square"
         main_square(square_filename, make_gifs)
@@ -282,5 +293,11 @@ def main(make_gifs=False):
         main_sin(sin_filename, make_gifs)
 
 
+def main_single(make_gifs=False):
+    with Timer(callback=Timer.DEFAULT_CALLBACK):
+        main_square("square-best", make_gifs, [Relu(), Sigmoid(), Tanh()])
+        main_sin("sin-best", make_gifs, [Tanh(), Tanh(), Sigmoid()])
+
+
 if __name__ == "__main__":
-    main()
+    main_single(True)
