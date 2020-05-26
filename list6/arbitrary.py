@@ -11,6 +11,7 @@ from matplotlib.animation import FuncAnimation
 from sklearn import preprocessing
 from pygifsicle import optimize
 
+from list4.time_decorator import Timer
 from list6.activation import *
 from list6.neural_network import NeuralNetwork
 from list6.utils import permutations_with_replacement
@@ -84,7 +85,7 @@ class GifParams:
 
 def train_progress(
     data: Data, nn_params: NeuralNetworkParams, gif_params: Optional[GifParams],
-):
+) -> List[float]:
     nn = NeuralNetwork.new_random(1, nn_params.layers)
 
     fig: plt.Figure
@@ -117,6 +118,10 @@ def train_progress(
 
     single_epoch, iters = nn_params.epochs
 
+    errors = []
+    error_checks = 5
+    error_check_iters = [iters, iters - 1] + [iters // error_checks * i for i in reversed(range(1, error_checks))]
+
     def update(i):
         i += 1
         nn.train_trans(
@@ -128,33 +133,45 @@ def train_progress(
         line.set_ydata(output)
         error = calc_error(data.testing_expected, output)
         title.set_text(title_template.format(iters=i * single_epoch, error=error))
+
+        if error_check_iters and error_check_iters[-1] == i:
+            error_check_iters.pop()
+            errors.append(error)
+
         # print(i, *[layer.input_weights for layer in nn.layers], sep="\n")
-        print(i, error)
+        # print(i, error)
         # ax.relim()
         # ax.autoscale_view()
         return line, title
 
     if gif_params is not None:
-        anim = FuncAnimation(
-            fig,
-            update,
-            init_func=lambda: (line, title),
-            frames=iters,
-            interval=gif_params.interval,
-            blit=True,
-        )
-        anim.save(gif_params.filename, dpi=100, writer="imagemagick")
-        try:
-            optimize(gif_params.filename)
-        except FileNotFoundError:
-            logging.warning("gifsicle not installed")
+        print("training the network and saving animation")
+        with Timer(callback=Timer.DEFAULT_CALLBACK):
+            anim = FuncAnimation(
+                fig,
+                update,
+                init_func=lambda: (line, title),
+                frames=iters,
+                interval=gif_params.interval,
+                blit=True,
+            )
+            anim.save(gif_params.filename, dpi=100, writer="imagemagick")
+
+        # try:
+        #     optimize(gif_params.filename)
+        # except FileNotFoundError:
+        #     logging.warning("gifsicle not installed")
     else:
-        for i in range(iters):
-            update(i)
+        print("training the network")
+        with Timer(callback=Timer.DEFAULT_CALLBACK):
+            for i in range(iters):
+                update(i)
         ax.plot(
             data.testing_input, data.testing_expected,
         )
         fig.show()
+
+    return errors
 
 
 def check_function(
@@ -162,11 +179,9 @@ def check_function(
     input_data: Tuple[np.ndarray, np.ndarray],
     nn_params: NeuralNetworkParams,
     gif_params: Optional[GifParams],
-):
+) -> List[float]:
     training_input, testing_input = input_data
     expected = f(training_input)
-    # plt.scatter(training_input, expected)
-    # plt.show()
 
     x_scaler = Scaler()
     x_scaler.fit(training_input)
@@ -181,7 +196,7 @@ def check_function(
 
     testing_expected = f(testing_input)
 
-    train_progress(
+    errors = train_progress(
         Data(
             (training_input, expected),
             (testing_input, testing_expected),
@@ -190,59 +205,81 @@ def check_function(
         nn_params,
         gif_params,
     )
-    return training_input, expected
+
+    return errors
 
 
-def main_square(filename_template: Optional[str] = None):
+def main_square(test_name: str, make_gif: bool):
     return main_any(
         np.square,
         (
             np.linspace(-50, 50, 26).reshape(-1, 1),
             np.linspace(-50, 50, 101).reshape(-1, 1),
         ),
-        filename_template,
+        test_name,
+        make_gif,
     )
 
 
-def main_sin(filename_template: Optional[str] = None):
+def main_sin(test_name: str, make_gif: bool):
     return main_any(
         lambda x: np.sin((3 * np.pi / 2) * x),
         (np.linspace(0, 2, 21).reshape(-1, 1), np.linspace(0, 2, 161).reshape(-1, 1)),
-        filename_template,
+        test_name,
+        make_gif,
     )
 
 
 def main_any(
     f: Callable[[np.ndarray], np.ndarray],
     data: Tuple[np.ndarray, np.ndarray],
-    filename_template: Optional[str],
+    test_name: str,
+    make_gif: bool,
 ):
+    test_id = 3
+    if make_gif:
+        dir_name = f"plots/{test_id}"
+        Path(dir_name).mkdir(parents=True, exist_ok=True)
+        filename_template = f"{dir_name}/{test_name}-plot-{{len}}-{{activations}}.gif"
+
+        def get_gif_params(activations):
+            filename = filename_template.format(
+                len=len(activations), activations="-".join(map(str, activations)),
+            )
+            return GifParams(filename, 50)
+
+    else:
+        # no gif will be created
+        def get_gif_params(_):
+            return None
+
     def perms(num: int):
         return permutations_with_replacement([Relu(), Sigmoid(), Tanh()], num)
 
-    for activations in chain(perms(2), perms(3)):
-        params: Optional[GifParams] = None
-        if filename_template is not None:
-            filename = filename_template.format(
-                activations="-".join(map(str, activations)), suffix="1"
-            )
-            params = GifParams(filename)
+    import csv
 
-        neuron_counts = [10] * len(activations)
-        neuron_counts[-1] = 1
-        check_function(
-            f,
-            data,
-            NeuralNetworkParams(list(zip(neuron_counts, activations)), (2000, 300)),
-            params,
-        )
+    with open(f"{test_name}-learning-{test_id}.csv", 'w+', newline='') as info_file:
+        writer = csv.writer(info_file)
+        for activations in chain(perms(2), perms(3)):
+            gif_params = get_gif_params(activations)
+            neuron_counts = [10] * len(activations)
+            neuron_counts[-1] = 1
+            with Timer() as timer:
+                errors = check_function(
+                    f,
+                    data,
+                    NeuralNetworkParams(list(zip(neuron_counts, activations)), (2000, 200)),
+                    gif_params,
+                )
+            writer.writerow(["-".join(map(str, activations)), timer.elapsed_ns / 1e6, *errors])
 
 
-def main():
-    _square_filename = "plots/plot-square-{activations}-{suffix}.gif"
-    main_square(_square_filename)
-    _sin_filename = "plots/plot-sin-{activations}-{suffix}.gif"
-    main_sin(_sin_filename)
+def main(make_gifs=False):
+    with Timer(callback=Timer.DEFAULT_CALLBACK):
+        square_filename = "square"
+        main_square(square_filename, make_gifs)
+        sin_filename = "sin"
+        main_sin(sin_filename, make_gifs)
 
 
 if __name__ == "__main__":
